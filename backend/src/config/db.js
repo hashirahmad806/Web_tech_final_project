@@ -24,8 +24,9 @@ dotenv.config();
 
 const ConnectionDB = async () => {
   try {
+    console.log(process.env.MONGODB_URI, process.env.DATA_BASE_STRING);
     // Try MongoDB URI first (local), then DATA_BASE_STRING (Atlas)
-    const mongoUri = process.env.MONGODB_URI || process.env.DATA_BASE_STRING;
+    const mongoUri =  process.env.DATA_BASE_STRING;
 
     if (!mongoUri) {
       throw new Error(
