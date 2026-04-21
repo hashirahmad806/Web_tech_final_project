@@ -46,10 +46,10 @@ Required variables:
 
 ```env
 PORT=5000
-MONGODB_URI=mongodb://127.0.0.1:27017/ai-student-assistant
-GROQ_API_KEY=your_groq_api_key
-GROQ_MODEL=llama-3.3-70b-versatile
-GROQ_VISION_MODEL=meta-llama/llama-4-scout-17b-16e-instruct
+MONGODB_URI
+GROQ_API_KEY
+GROQ_MODEL
+GROQ_VISION_MODEL
 CLIENT_URL=http://localhost:5173
 ```
 
