@@ -1,22 +1,10 @@
 import { Router } from "express";
 import multer from "multer";
-import path from "path";
-import { fileURLToPath } from "url";
 import { analyzeImageQuestion } from "../controllers/uploadController.js";
 
 const router = Router();
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
 
-const storage = multer.diskStorage({
-  destination: (_req, _file, cb) => {
-    cb(null, path.resolve(__dirname, "../../uploads"));
-  },
-  filename: (_req, file, cb) => {
-    const safeName = file.originalname.replace(/\s+/g, "-").toLowerCase();
-    cb(null, `${Date.now()}-${safeName}`);
-  },
-});
+const storage = multer.memoryStorage();
 
 const upload = multer({
   storage,

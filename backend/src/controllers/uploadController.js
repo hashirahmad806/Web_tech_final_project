@@ -1,6 +1,8 @@
-import fs from "fs/promises";
 import { getOpenAIClient } from "../config/openai.js";
 import { upsertSession } from "../utils/session.js";
+import { UTApi } from "uploadthing/server";
+
+export const utapi = new UTApi();
 
 function extractReplyContent(messageContent) {
   if (typeof messageContent === "string") {
@@ -40,6 +42,30 @@ export async function analyzeImageQuestion(req, res, next) {
       sessionId = "default-session",
     } = req.body;
 
+    const imageBuffer = file.buffer;
+    const mimeType = file.mimetype || "image/png";
+
+    if (imageBuffer.length > 2.8 * 1024 * 1024) {
+      return res.status(400).json({
+        message:
+          "This image is still too large for reliable Groq vision analysis after encoding. Try a smaller screenshot, crop the question area, or upload a clearer image with less empty space.",
+      });
+    }
+
+    let uploadedFileUrl = null;
+    try {
+      const utFile = new File([imageBuffer], file.originalname || "upload.jpg", { type: mimeType });
+      const response = await utapi.uploadFiles([utFile]);
+      if (response && response[0] && response[0].data) {
+        uploadedFileUrl = response[0].data.ufsUrl;
+      } else {
+        throw new Error("UploadThing returned invalid response");
+      }
+    } catch (error) {
+      console.error("UploadThing Error:", error);
+      return res.status(500).json({ message: "Failed to upload image to cloud storage." });
+    }
+
     if (!process.env.GROQ_API_KEY) {
       const fallback =
         "GROQ_API_KEY is missing. Add it in backend/.env to enable image-based solving.";
@@ -51,23 +77,13 @@ export async function analyzeImageQuestion(req, res, next) {
         type: "image",
       });
 
-      return res.json({ reply: fallback, imagePath: file.path });
-    }
-
-    const imageBuffer = await fs.readFile(file.path);
-
-    if (imageBuffer.length > 2.8 * 1024 * 1024) {
-      return res.status(400).json({
-        message:
-          "This image is still too large for reliable Groq vision analysis after encoding. Try a smaller screenshot, crop the question area, or upload a clearer image with less empty space.",
-      });
+      return res.json({ reply: fallback, imagePath: uploadedFileUrl });
     }
 
     const base64Image = imageBuffer.toString("base64");
-    const mimeType = file.mimetype || "image/png";
     const openai = getOpenAIClient();
 
-    const response = await openai.chat.completions.create({
+    const aiResponse = await openai.chat.completions.create({
       model:
         process.env.GROQ_VISION_MODEL ||
         process.env.GROQ_MODEL ||
@@ -124,7 +140,7 @@ Conclusion: ...`,
     });
 
     const reply =
-      extractReplyContent(response.choices?.[0]?.message?.content) ||
+      extractReplyContent(aiResponse.choices?.[0]?.message?.content) ||
       "I could not read a usable answer from the image.";
 
     await upsertSession({
@@ -136,7 +152,7 @@ Conclusion: ...`,
 
     res.json({
       reply,
-      imagePath: file.path,
+      imagePath: uploadedFileUrl,
     });
   } catch (error) {
     if (
